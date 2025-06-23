@@ -28,7 +28,6 @@ Fasse sie zu einer präzisen Antwort zusammen, strukturiere sie mit Markdown-Üb
 
 @st.cache_resource
 # Lade und cache die RetrievalQA-Chain
-
 def load_chain():
     embedding_model = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
@@ -68,8 +67,7 @@ def load_chain():
         return_source_documents=True
     )
 
-# Hauptfunktion
-
+# ─── Hauptfunktion mit Sidebar-Chatverlauf und Regenerieren ───────────────────────────
 def main():
     st.set_page_config(page_title="PDF Chatbot", layout="wide")
 
@@ -79,9 +77,24 @@ def main():
         st.error("🔑 API-Schlüssel fehlt. Bitte in Streamlit Secrets hinterlegen.")
         st.stop()
 
-    # Session-State initialisieren
+    # Session-State für Verlauf initialisieren
     if "history" not in st.session_state:
         st.session_state.history = []  # List of dicts {question, answer}
+
+    # Sidebar: Chatverlauf & Regenerieren
+    st.sidebar.header("🗨️ Chatverlauf")
+    for idx, entry in enumerate(st.session_state.history):
+        q = entry['question']
+        a = entry['answer']
+        with st.sidebar.expander(f"Frage: {q}", expanded=False):
+            st.markdown(a)
+            if st.button("🔄 Regenerieren", key=f"regen_{idx}"):
+                # Verlauf bis zu dieser Frage zurücksetzen und neu anstoßen
+                st.session_state.history = st.session_state.history[:idx]
+                st.session_state.current_question = q
+                st.experimental_rerun()
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Neue Frage im Hauptbereich stellen**")
 
     # Statisches Formular oben
     st.title("📘 Frag den Betreiberleitfaden")
@@ -96,7 +109,7 @@ def main():
             st.session_state.history.append({"question": question, "answer": answer})
 
     st.markdown("---")
-    # Antworten darunter anzeigen
+    # Antworten und Fragenverlauf darunter anzeigen
     for entry in st.session_state.history:
         st.markdown(f"**Du:** {entry['question']}")
         st.markdown(entry['answer'])
