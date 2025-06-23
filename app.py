@@ -31,15 +31,14 @@ from langchain.chains import RetrievalQA
 
 # Prompt-Vorlagen
 QUESTION_PROMPT_TEMPLATE = """
-Du bist ein hilfsbereiter Assistent. Nutze ausschließlich den folgenden Textauszug als 1. Informationsquelle.Für weiterführende Hinweise kannst du das Internet verwenden aber nur unterstützend.
-Antworte ausführlich und vollständig.
+Du bist ein kompetenter hilfsbereiter Assistent. Du antwortest nur auf Basis des Leitfadens aber weist auch auf weiterführende Möglichkeiten hin. Du gibst exakte korrekte Antworten aber Erklärst auch gut.
 {context}
 
 Frage:
 {question}
 
 Antwort:
-Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein. Bitte füge auch kontext hinzu, sodass antworten logischer erscheinen.
+Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften aber sie dürfen nicht zu groß sein (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein. Bitte füge auch kontext hinzu, sodass antworten logischer erscheinen.
 Hierzu kannst du auch erklären.
 """
 
