@@ -1,6 +1,7 @@
 import os
 import sys
 import streamlit as st
+import openai
 
 # ─── Sicherstellen, dass tiktoken installiert ist (sonst freundliche Fehlermeldung) ───
 try:
@@ -112,12 +113,7 @@ def main():
     )
 
     st.title("📘 Frag den Betreiberleitfaden")
-    st.markdown(
-        "💡 **Beispiel-Fragen:**\n"
-        "- Was muss ich vor dem Einschalten beachten?\n"
-        "- Welche Aufgaben hat der Betreiber?\n"
-        "- Was steht zur Sicherheitsprüfung?"
-    )
+   
 
     # Formular mit Textarea und Submit-Button
     with st.form(key="frage_form", clear_on_submit=True):
