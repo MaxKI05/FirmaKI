@@ -26,7 +26,7 @@ Du bist ein hilfreicher Assistent. Du bekommst mehrere kurze Antworten (Summarie
 Fasse sie zu einer präzisen Antwort zusammen, strukturiere sie mit Markdown-Überschriften (##) und füge nach jeder Aussage (Seite X) als Quelle ein.
 """
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 # Lade und cache die RetrievalQA-Chain
 def load_chain():
     embedding_model = HuggingFaceEmbeddings(
@@ -98,23 +98,10 @@ def main():
 
     # Statisches Formular oben
     st.title("📘 Frag den Betreiberleitfaden")
-    question = st.text_input("❓ Deine Frage:", key="input")
-    if st.button("🔍 Antwort anzeigen"):
-        if question.strip():
-            chain = load_chain()
-            with st.spinner("📚 Ich durchsuche den Leitfaden..."):
-                result = chain({"query": question})
-            answer = result.get("result")
-            # Antwort speichern
-            st.session_state.history.append({"question": question, "answer": answer})
-
-    st.markdown("---")
-    # Antworten und Fragenverlauf darunter anzeigen
-    for entry in st.session_state.history:
-        st.markdown(f"**Du:** {entry['question']}")
-        st.markdown(entry['answer'])
-        st.markdown("---")
-
-# Entry Point
-if __name__ == "__main__":
-    main()
+        question = st.text_input("❓ Deine Frage:", key="input")
+    # Handle regeneration from sidebar
+    if st.session_state.get('current_question'):
+        question = st.session_state.pop('current_question')
+        submitted = True
+    else:
+        submitted = st.button("🔍 Antwort anzeigen")
