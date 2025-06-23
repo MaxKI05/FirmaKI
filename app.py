@@ -89,7 +89,7 @@ def load_chain():
     chain = RetrievalQA.from_chain_type(
         llm=llm,
         retriever=retriever,
-        chain_type="map_rerank",
+        chain_type="map_reduce",
         chain_type_kwargs={
             "question_prompt": question_prompt,
             "combine_prompt": combine_prompt
