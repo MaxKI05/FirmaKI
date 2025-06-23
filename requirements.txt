@@ -1,0 +1,5 @@
+streamlit
+PyPDF2
+openai
+pandas
+tiktoken>=0.4.0
