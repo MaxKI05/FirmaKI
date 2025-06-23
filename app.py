@@ -77,7 +77,7 @@ def load_chain():
         "lambda_mult": 0.5
     })
     # LLM
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
+    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0, stream=True)
     # PromptTemplates
     question_prompt = PromptTemplate(
         template=QUESTION_PROMPT_TEMPLATE,
@@ -87,7 +87,7 @@ def load_chain():
         template=COMBINE_PROMPT_TEMPLATE,
         input_variables=["question", "summaries"]
     )
-    # RetrievalQA mit Quellen
+    # RetrievalQA mit Streaming und Quellen
     chain = RetrievalQA.from_chain_type(
         llm=llm,
         retriever=retriever,
@@ -100,24 +100,80 @@ def load_chain():
     )
     return chain
 
+# Initialisiere Session-State für Chat-Verlauf
+if 'history' not in st.session_state:
+    st.session_state.history = []  # list of (question, answer, docs)
+
 # ─── Hauptfunktion ────────────────────────────────────────────────────────────────────
 def main():
+    st.sidebar.header("🗨️ Chatverlauf")
+    # Zeige bisherigen Chat in Sidebar
+    for idx, (q, a, docs) in enumerate(st.session_state.history):
+        with st.sidebar.expander(f"Frage: {q}", expanded=False):
+            st.markdown(a)
+            if st.button(f"🔄 Regenerieren", key=f"regen_{idx}"):
+                # Entferne zukünftige History und erneute Ausführung
+                st.session_state.history = st.session_state.history[:idx]
+                st.session_state.current = q
+                st.experimental_rerun()
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Neue Frage eingeben im Hauptbereich.**")
+
     st.markdown("# 📘 Frag den Betreiberleitfaden")
     st.markdown("---")
 
     with st.form(key="frage_form", clear_on_submit=True):
-        question = st.text_area("❓ Deine Frage:", height=150)
+        question = st.text_input("❓ Deine Frage:")
         submitted = st.form_submit_button("🔍 Antwort anzeigen")
 
-    if submitted and question.strip():
+    if submitted and question:
         chain = load_chain()
-        with st.spinner("📚 Ich strukturiere und suche im Leitfaden..."):
-            result = chain({"query": question})
-            answer = result.get("result")
-        if answer:
-            st.markdown(answer)
-        else:
-            st.error("⚠️ Leider konnte ich dazu im Leitfaden nichts finden.")
+        st.session_state.current = question
+        placeholder = st.empty()
+        answer_stream = []
+        docs = []
+        with st.spinner("📚 Ich durchsuche den Leitfaden und generiere..."):
+            # Streamen der Antwort
+            for token in chain.llm.generate(
+                chain.llm._convert_messages([{"role":"user","content":question}]),
+                stream=True
+            ):
+                chunk = token.choices[0].delta.get('content', '')
+                answer_stream.append(chunk)
+                placeholder.markdown(''.join(answer_stream))
+        answer = ''.join(answer_stream)
+        # Vollständige Chain für Quellen
+        res = chain({"query": question})
+        docs = res.get("source_documents", [])
+        # Chat-Verlauf aktualisieren
+        st.session_state.history.append((question, answer, docs))
+
+        # Folgefragen via LLM
+        followup_prompt = (
+            f"Basierend auf dieser Antwort: {answer}\n" 
+            "Nenne drei sinnvolle Folgefragen für den Nutzer.")
+        followups = []
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role":"system","content":"Du sollst Folgefragen liefern."},
+                      {"role":"user","content":followup_prompt}],
+            max_tokens=100
+        )
+        text = response.choices[0].message.content
+        for line in text.splitlines():
+            if line.strip().startswith("-") or line.strip().isdigit() or '1.' in line:
+                cleaned = line.lstrip("- 123.")
+                followups.append(cleaned.strip())
+
+        st.markdown("---")
+        st.markdown("### Folgefragen")
+        cols = st.columns(len(followups))
+        for i, fq in enumerate(followups):
+            if cols[i].button(fq, key=f"fu_{i}"):
+                st.session_state.history = st.session_state.history  # no change
+                st.session_state.current = fq
+                st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
