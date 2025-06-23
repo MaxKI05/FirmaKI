@@ -49,9 +49,7 @@ Fasse sie zusammen mit Überschriften (##) und Quellenangaben (Seite X).
 '''
 
 @st.cache_resource
-# lädt und cached die RetrievalQA-Chain
-
-def load_chain():
+func def load_chain():
     emb = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", model_kwargs={"device": "cpu"})
     path = os.path.join(os.path.dirname(__file__), "leitfaden_index")
     if not os.path.isdir(path):
@@ -63,43 +61,36 @@ def load_chain():
     q_prompt = PromptTemplate(template=QUESTION_PROMPT, input_variables=["context","question"])
     c_prompt = PromptTemplate(template=COMBINE_PROMPT, input_variables=["question","summaries"])
     return RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retr,
-        chain_type="map_reduce",
-        chain_type_kwargs={"question_prompt":q_prompt,"combine_prompt":c_prompt},
+        llm=llm, retriever=retr, chain_type="map_reduce", 
+        chain_type_kwargs={"question_prompt":q_prompt,"combine_prompt":c_prompt}, 
         return_source_documents=True
     )
 
-# Session state initialisieren
+# Session state
 if 'history' not in st.session_state:
-    st.session_state.history = []  # Liste von Dicts: {"question","answer","docs","followups"}
+    st.session_state.history = []  # List of dicts: {"question","answer","docs"}
 if 'input' not in st.session_state:
     st.session_state.input = ''
 
 # Haupt-UI
 st.markdown("# 📘 Firmen-KI Chat")
-
-# Chat-Verlauf im Hauptbereich
-dialog = st.container()
-with dialog:
+chat_container = st.container()
+with chat_container:
     for entry in st.session_state.history:
         st.markdown(f"**Du:** {entry['question']}")
         st.markdown(f"**KI:** {entry['answer']}")
-        # Inline-Quellen werden bereits im Antworttext angezeigt
 
 # Eingabe-Feld unten
 
 def submit_question():
     q = st.session_state.input.strip()
-    if not q:
-        return
+    if not q: return
     chain = load_chain()
     res = chain({"query": q})
-    ans = res.get("result")
+    ans = res["result"]
     docs = res.get("source_documents", [])
-    # Antwort und Metadaten speichern
     st.session_state.history.append({"question": q, "answer": ans, "docs": docs})
-    # Folgefragen generieren
+    # Follow-ups generieren
     fu_prompt = f"Basierend auf: {ans}\nNenne drei sinnvolle Folgefragen."
     resp = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -122,13 +113,14 @@ st.text_input(
     label_visibility="collapsed"
 )
 
-# Follow-up Buttons unter letzter Antwort
+# Follow-up Buttons
 if st.session_state.history:
     last = st.session_state.history[-1]
-    if 'followups' in last and last['followups']:
+    if 'followups' in last:
         st.markdown("---")
         cols = st.columns(len(last['followups']))
         for i, fu in enumerate(last['followups']):
             if cols[i].button(fu, key=f"fu_{i}"):
                 st.session_state.input = fu
                 submit_question()
+
