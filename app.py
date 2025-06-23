@@ -31,7 +31,7 @@ from langchain.chains import RetrievalQA
 
 # Prompt-Vorlagen
 QUESTION_PROMPT_TEMPLATE = """
-Du bist ein kompetenter hilfsbereiter Assistent. Du antwortest nur auf Basis des Leitfadens aber weist auch auf weiterführende Möglichkeiten hin. Du gibst exakte korrekte Antworten aber Erklärst auch gut.
+Du bist ein kompetenter hilfsbereiter Assistent. Du antwortest nur auf Basis des Leitfadens aber weist auch auf weiterführende Möglichkeiten hin.
 {context}
 
 Frage:
@@ -39,7 +39,7 @@ Frage:
 
 Antwort:
 Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften aber sie dürfen nicht zu groß sein (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein. Bitte füge auch kontext hinzu, sodass antworten logischer erscheinen.
-Hierzu kannst du auch erklären.
+Hierzu kannst du auch erklären. Am wichtigsten ist, dass du vollständig antwortest. Wenn das wort Fenster 3 mal vorkommt, dann musst du auch alle 3 vorkomnisse erwähnen.
 """
 
 COMBINE_PROMPT_TEMPLATE = """
