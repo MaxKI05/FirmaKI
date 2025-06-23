@@ -20,20 +20,11 @@ Frage:
 {question}
 
 Antwort:
-Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein.
-'''
+Beantworte klar und strukturiert, verwende Markdown-Überschriften nur wenn es sinnvoll ist, und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein. Antworte chronologisch gemäß der Seitenreihenfolge (Seite 1 zuerst).
+''' 
 COMBINE_PROMPT = '''
-Du bist ein hilfreicher Assistent.
-Fasse die folgenden kurzen Antworten (Summaries) zu einer präzisen Gesamtantwort zusammen.
-
-Summaries:
-{summaries}
-
-Frage:
-{question}
-
-Antwort:
-Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage (Seite X) als Quelle ein.
+Du bist ein hilfreicher Assistent. Du bekommst mehrere kurze Antworten (Summaries) zu einer Frage.
+Fasse sie in der korrekten Reihenfolge zusammen (erst Seite 1, zuletzt Seite 50), strukturiere nur wenn nötig mit Markdown-Überschriften, und füge nach jeder Aussage (Seite X) als Quelle ein.
 '''
 
 @st.cache_resource(show_spinner=False)
