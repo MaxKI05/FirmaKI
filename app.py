@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import openai
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chat_models import ChatOpenAI
@@ -9,7 +10,7 @@ from langchain.chains import RetrievalQA
 # ─── Streamlit-Konfiguration ─────────────────────────────────────────────────────────
 st.set_page_config(page_title="PDF Chatbot", layout="wide")
 
-# Prompt-Vorlage: Überschriften + Inline-Quellen
+# Prompt-Vorlagen
 QUESTION_PROMPT = '''
 Du bist ein hilfsbereiter Assistent. Nutze ausschließlich den folgenden Textauszug als Quelle:
 
@@ -20,6 +21,19 @@ Frage:
 
 Antwort:
 Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein.
+'''
+COMBINE_PROMPT = '''
+Du bist ein hilfreicher Assistent.
+Fasse die folgenden kurzen Antworten (Summaries) zu einer präzisen Gesamtantwort zusammen.
+
+Summaries:
+{summaries}
+
+Frage:
+{question}
+
+Antwort:
+Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage (Seite X) als Quelle ein.
 '''
 
 @st.cache_resource(show_spinner=False)
@@ -32,31 +46,32 @@ def load_chain():
     if not os.path.isdir(index_dir):
         st.error(f"Index-Ordner nicht gefunden: {index_dir}")
         st.stop()
-    vectorstore = FAISS.load_local(index_dir, embeddings, allow_dangerous_deserialization=True)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 5, "fetch_k": 20, "maximal_marginal_relevance": True})
-    # LLM
+    store = FAISS.load_local(index_dir, embeddings, allow_dangerous_deserialization=True)
+    retriever = store.as_retriever(search_kwargs={"k": 5, "fetch_k": 20, "maximal_marginal_relevance": True})
+    # LLM konfigurieren
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
-    # PromptTemplate
-    prompt = PromptTemplate(template=QUESTION_PROMPT, input_variables=["context", "question"])
-    # Chain
+    # PromptTemplates
+    question_template = PromptTemplate(template=QUESTION_PROMPT, input_variables=["context", "question"])
+    combine_template = PromptTemplate(template=COMBINE_PROMPT, input_variables=["summaries", "question"])
+    # Chain erstellen
     return RetrievalQA.from_chain_type(
         llm=llm,
         retriever=retriever,
         chain_type="map_reduce",
-        chain_type_kwargs={"question_prompt": prompt, "combine_prompt": prompt},
+        chain_type_kwargs={"question_prompt": question_template, "combine_prompt": combine_template},
         return_source_documents=True
     )
 
 # Hauptfunktion
 def main():
-    # API-Key konfigurieren
-    openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
+    # API-Key setzen
+    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
         st.error("🔑 API-Schlüssel fehlt. Bitte in Streamlit Secrets hinterlegen.")
         return
+    openai.api_key = api_key
 
     st.title("📘 Frag den Betreiberleitfaden")
-
     # Eingabe-Feld oben
     question = st.text_input("❓ Deine Frage:")
     if st.button("🔍 Antwort anzeigen") and question.strip():
@@ -66,15 +81,13 @@ def main():
         answer = result.get("result", "")
         docs = result.get("source_documents", [])
 
-        # Strukturierte Antwort ausgeben
+        # Antwort ausgeben
         st.markdown("## ✅ Antwort")
         st.markdown(answer)
-
-        # Quellen sammeln und anzeigen
+        # Quellen anzeigen
         pages = sorted({str(doc.metadata.get("page", "?")).strip() for doc in docs})
         if pages:
             st.markdown("**Quellen:** " + ", ".join(f"Seite {p}" for p in pages))
 
 if __name__ == "__main__":
     main()
-
