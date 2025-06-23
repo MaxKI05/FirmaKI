@@ -2,12 +2,6 @@ import os
 import streamlit as st
 from openai import OpenAI
 
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
-
 # ─── Streamlit-Konfiguration ─────────────────────────────────────────────────────────
 st.set_page_config(page_title="PDF Chatbot", layout="wide")
 
@@ -20,17 +14,24 @@ for pkg in ("tiktoken", "transformers", "sentence_transformers", "torch"):
         st.error(f"Bitte installiere das Paket '{pkg}' in requirements.txt und redeploy die App.")
         st.stop()
 
-# API-Key & OpenAI-Client
+# API-Key
 api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 if not api_key:
     st.title("🔑 Kein API-Schlüssel gefunden")
     st.error("Bitte hinterlege Deinen OPENAI_API_KEY in Streamlit Secrets oder als Umgebungsvariable.")
     st.stop()
+# OpenAI-Client instanziieren
 client = OpenAI(api_key=api_key)
 
-# Prompt-Vorlagen mit finaler Antwort + Begründung + Inline-Quellen
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains import RetrievalQA
+
+# Prompt-Vorlagen
 QUESTION_PROMPT_TEMPLATE = """
-Du bist ein hilfsbereiter Assistent. Nutze ausschließlich den folgenden Textauszug als Informationsquelle:
+Du bist ein hilfsbereiter Assistent. Nutze ausschließlich den folgenden Textauszug als Informationsquelle.
 
 {context}
 
@@ -38,26 +39,27 @@ Frage:
 {question}
 
 Antwort:
-Bitte gib zuerst eine klare, einzelne finale Antwort in einem Satz. 
-Anschließend erkläre Schritt-für-Schritt, welche Information du auf welchen Seiten gefunden hast. 
-Füge nach jeder Aussage in der Erklärung eine Quellenangabe in der Form (Seite X) ein. 
-Antworte chronologisch entsprechend der Seitenreihenfolge (Seite 1 zuerst).
+Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein.
 """
 
 COMBINE_PROMPT_TEMPLATE = """
-Du bist ein hilfreicher Assistent. Du erhältst mehrere kurze Antworten (Summaries) zu einer Frage.
-Fasse sie zu einer einzigen finalen Antwort zusammen und gib anschließend eine nachvollziehbare Erklärung, 
-geordnet nach Seiten (Seite 1 zuerst), mit Inline-Quellenangaben (Seite X) an.
+Du bist ein hilfreicher Assistent. Du bekommst mehrere kurze Antworten (Summaries) zu einer Frage.
+
+Frage:
+{question}
+
+Summaries:
+{summaries}
+
+Fasse sie zu einer präzisen Antwort zusammen und strukturiere mit Markdown-Überschriften (##). Nach jeder Aussage gebe die Quelle in der Form (Seite X) an.
 """
 
 @st.cache_resource(show_spinner=False)
 def load_chain():
-    # 1) Embeddings
     embedding_model = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"}
     )
-    # 2) FAISS-Index laden
     base_path = os.path.join(os.path.dirname(__file__), "leitfaden_index")
     if not os.path.isdir(base_path):
         st.error(f"❌ Ordner 'leitfaden_index' nicht gefunden unter {base_path}.")
@@ -67,25 +69,21 @@ def load_chain():
         embedding_model,
         allow_dangerous_deserialization=True
     )
-    # 3) Retriever mit größerem fetch_k
     retriever = vectorstore.as_retriever(search_kwargs={
         "k": 5,
-        "fetch_k": 50,
+        "fetch_k": 20,
         "maximal_marginal_relevance": True,
         "lambda_mult": 0.5
     })
-    # 4) LLM
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
-    # 5) PromptTemplates
     question_prompt = PromptTemplate(
         template=QUESTION_PROMPT_TEMPLATE,
         input_variables=["context", "question"]
     )
     combine_prompt = PromptTemplate(
         template=COMBINE_PROMPT_TEMPLATE,
-        input_variables=["summaries", "question"]
+        input_variables=["question", "summaries"]
     )
-    # 6) RetrievalQA mit map_rerank
     chain = RetrievalQA.from_chain_type(
         llm=llm,
         retriever=retriever,
@@ -100,33 +98,56 @@ def load_chain():
 
 # Session-State initialisieren
 if 'history' not in st.session_state:
-    st.session_state.history = []  # Tuple: (question, answer, docs)
+    st.session_state.history = []
 
 # Hauptfunktion
 
 def main():
-    st.title("📘 Frag den Betreiberleitfaden")
-    question = st.text_input("❓ Deine Frage:")
-    if st.button("🔍 Antwort anzeigen") and question.strip():
+    st.sidebar.header("🗨️ Chatverlauf")
+    for idx, (q, a, docs) in enumerate(st.session_state.history):
+        with st.sidebar.expander(f"Frage: {q}", expanded=False):
+            st.markdown(a)
+            if st.button("🔄 Regenerieren", key=f"regen_{idx}"):
+                st.session_state.history = st.session_state.history[:idx]
+                st.session_state.current = q
+                st.experimental_rerun()
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("Stelle eine neue Frage im Hauptbereich.")
+
+    st.markdown("# 📘 Frag den Betreiberleitfaden")
+    st.markdown("---")
+
+    with st.form(key="frage_form", clear_on_submit=True):
+        question = st.text_input("❓ Deine Frage:")
+        submitted = st.form_submit_button("🔍 Antwort anzeigen")
+
+    if submitted and question:
         chain = load_chain()
-        with st.spinner("📚 Ich durchsuche den Leitfaden…"):
+        with st.spinner("📚 Suche im Leitfaden und generiere Antwort..."):
             res = chain({"query": question})
-        answer = res.get("result", "Keine Antwort gefunden.")
-        docs = res.get("source_documents", [])
-        # Antwort ausgeben
-        st.markdown("## ✅ Antwort")
-        st.write(answer)
-        # Erklärungssnippets chronologisch
-        if docs:
-            st.markdown("---")
-            st.markdown("### Erklärung nach Seiten")
-            sorted_docs = sorted(docs, key=lambda d: int(d.metadata.get("page", 0) or 0))
-            for doc in sorted_docs:
-                page = doc.metadata.get("page", "?")
-                snippet = doc.page_content.replace("\n", " ")[:200]
-                st.markdown(f"**Seite {page}:** {snippet}…")
-        # Verlauf speichern
+            answer = res.get("result")
+            docs = res.get("source_documents", [])
+        st.markdown(answer)
         st.session_state.history.append((question, answer, docs))
+        # Folgefragen
+        followup_prompt = (
+            f"Basierend auf dieser Antwort: {answer}\n"
+            "Nenne drei sinnvolle Folgefragen für den Nutzer.")
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role":"system","content":"Du sollst Folgefragen liefern."},
+                      {"role":"user","content":followup_prompt}],
+            max_tokens=100
+        )
+        followup_text = response.choices[0].message.content
+        st.markdown("---")
+        st.markdown("### Folgefragen")
+        for line in followup_text.split("\n"):
+            if line.strip():
+                clean = line.lstrip("- 123.").strip()
+                if st.button(clean, key=f"fu_{clean}"):
+                    st.session_state.current = clean
+                    st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
