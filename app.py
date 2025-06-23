@@ -96,10 +96,16 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("**Neue Frage im Hauptbereich stellen**")
 
-    # Statisches Formular oben
+        # Statisches Formular oben
     st.title("📘 Frag den Betreiberleitfaden")
-        question = st.text_input("❓ Deine Frage:", key="input")
+    question = st.text_input("❓ Deine Frage:", key="input")
+
     # Handle regeneration from sidebar
+    if st.session_state.get('current_question'):
+        question = st.session_state.pop('current_question')
+        submitted = True
+    else:
+        submitted = st.button("🔍 Antwort anzeigen")
     if st.session_state.get('current_question'):
         question = st.session_state.pop('current_question')
         submitted = True
