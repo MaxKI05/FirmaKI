@@ -31,15 +31,16 @@ from langchain.chains import RetrievalQA
 
 # Prompt-Vorlagen
 QUESTION_PROMPT_TEMPLATE = """
-Du bist ein hilfsbereiter Assistent. Nutze ausschließlich den folgenden Textauszug als Informationsquelle.
-
+Du bist ein hilfsbereiter Assistent. Nutze ausschließlich den folgenden Textauszug als 1. Informationsquelle.Für weiterführende Hinweise kannst du das Internet verwenden aber nur unterstützend.
+Antworte ausführlich und vollständig.
 {context}
 
 Frage:
 {question}
 
 Antwort:
-Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein.
+Bitte strukturiere deine Antwort mit klaren Markdown-Überschriften (##) und füge nach jeder Aussage eine Quellenangabe in der Form (Seite X) ein. Bitte füge auch kontext hinzu, sodass antworten logischer erscheinen.
+Hierzu kannst du auch erklären.
 """
 
 COMBINE_PROMPT_TEMPLATE = """
@@ -129,25 +130,7 @@ def main():
             docs = res.get("source_documents", [])
         st.markdown(answer)
         st.session_state.history.append((question, answer, docs))
-        # Folgefragen
-        followup_prompt = (
-            f"Basierend auf dieser Antwort: {answer}\n"
-            "Nenne drei sinnvolle Folgefragen für den Nutzer.")
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role":"system","content":"Du sollst Folgefragen liefern."},
-                      {"role":"user","content":followup_prompt}],
-            max_tokens=100
-        )
-        followup_text = response.choices[0].message.content
-        st.markdown("---")
-        st.markdown("### Folgefragen")
-        for line in followup_text.split("\n"):
-            if line.strip():
-                clean = line.lstrip("- 123.").strip()
-                if st.button(clean, key=f"fu_{clean}"):
-                    st.session_state.current = clean
-                    st.experimental_rerun()
+     
 
 if __name__ == "__main__":
     main()
