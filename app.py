@@ -75,7 +75,7 @@ def load_chain():
         "maximal_marginal_relevance": True,
         "lambda_mult": 0.5
     })
-    llm = ChatOpenAI(model_name="gpt-4", temperature=0.0)
+    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
     question_prompt = PromptTemplate(
         template=QUESTION_PROMPT_TEMPLATE,
         input_variables=["context", "question"]
