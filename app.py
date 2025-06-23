@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-import openai
+from openai import OpenAI
 
 # ─── Streamlit-Konfiguration ─────────────────────────────────────────────────────────
 st.set_page_config(page_title="PDF Chatbot", layout="wide")
@@ -15,11 +15,13 @@ for pkg in ("tiktoken", "transformers", "sentence_transformers", "torch"):
         st.stop()
 
 # API-Key
-openai.api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-if not openai.api_key:
+api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+if not api_key:
     st.title("🔑 Kein API-Schlüssel gefunden")
     st.error("Bitte hinterlege Deinen OPENAI_API_KEY in Streamlit Secrets oder als Umgebungsvariable.")
     st.stop()
+# OpenAI-Client instanziieren
+client = OpenAI(api_key=api_key)
 
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -121,21 +123,17 @@ def main():
 
     if submitted and question:
         chain = load_chain()
-        # Direkter Aufruf ohne Streaming
         with st.spinner("📚 Suche im Leitfaden und generiere Antwort..."):
             res = chain({"query": question})
             answer = res.get("result")
             docs = res.get("source_documents", [])
-        # Anzeige der Antwort
         st.markdown(answer)
-        # Inline-Quellen (Seitenzahlen nach Aussagen bereits im Antworttext)
-        # Chatverlauf speichern
         st.session_state.history.append((question, answer, docs))
         # Folgefragen
         followup_prompt = (
-            f"Basierend auf dieser Antwort: {answer}\n" 
+            f"Basierend auf dieser Antwort: {answer}\n"
             "Nenne drei sinnvolle Folgefragen für den Nutzer.")
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role":"system","content":"Du sollst Folgefragen liefern."},
                       {"role":"user","content":followup_prompt}],
