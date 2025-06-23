@@ -9,12 +9,6 @@ from langchain.chains import RetrievalQA
 
 # ─── Streamlit-Konfiguration ─────────────────────────────────────────────────────────
 st.set_page_config(page_title="PDF Chatbot", layout="wide")
-# Kleines Logo oben rechts
-logo_path = os.path.join(os.path.dirname(__file__), "assets", "ikl_logo.png")
-col1, col2 = st.columns([9, 1])
-with col2:
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=50)
 
 # Pakete-Check
 for pkg in ("tiktoken", "transformers", "sentence_transformers", "torch"):
@@ -60,11 +54,7 @@ func def load_chain():
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.0)
     q_prompt = PromptTemplate(template=QUESTION_PROMPT, input_variables=["context","question"])
     c_prompt = PromptTemplate(template=COMBINE_PROMPT, input_variables=["question","summaries"])
-    return RetrievalQA.from_chain_type(
-        llm=llm, retriever=retr, chain_type="map_reduce", 
-        chain_type_kwargs={"question_prompt":q_prompt,"combine_prompt":c_prompt}, 
-        return_source_documents=True
-    )
+    return RetrievalQA.from_chain_type(llm=llm, retriever=retr, chain_type="map_reduce", chain_type_kwargs={"question_prompt":q_prompt,"combine_prompt":c_prompt}, return_source_documents=True)
 
 # Session state
 if 'history' not in st.session_state:
@@ -80,8 +70,7 @@ with chat_container:
         st.markdown(f"**Du:** {entry['question']}")
         st.markdown(f"**KI:** {entry['answer']}")
 
-# Eingabe-Feld unten
-
+# Eingabe
 def submit_question():
     q = st.session_state.input.strip()
     if not q: return
@@ -90,30 +79,17 @@ def submit_question():
     ans = res["result"]
     docs = res.get("source_documents", [])
     st.session_state.history.append({"question": q, "answer": ans, "docs": docs})
-    # Follow-ups generieren
+    # Follow-ups
     fu_prompt = f"Basierend auf: {ans}\nNenne drei sinnvolle Folgefragen."
-    resp = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role":"system","content":"Formuliere Folgefragen."},
-            {"role":"user","content":fu_prompt}
-        ],
-        max_tokens=100
-    )
+    resp = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role":"system","content":"Formuliere Folgefragen."},{"role":"user","content":fu_prompt}], max_tokens=100)
     fu_text = resp.choices[0].message.content
     fus = [line.strip('- ').strip() for line in fu_text.splitlines() if line.strip()]
     st.session_state.history[-1]["followups"] = fus
     st.session_state.input = ''
 
-st.text_input(
-    "",
-    key="input",
-    on_change=submit_question,
-    placeholder="Stelle eine Frage...",
-    label_visibility="collapsed"
-)
+st.text_input("", key="input", on_change=submit_question, placeholder="Stelle eine Frage...", label_visibility="collapsed")
 
-# Follow-up Buttons
+# Follow-up Buttons unter letztem Eintrag
 if st.session_state.history:
     last = st.session_state.history[-1]
     if 'followups' in last:
@@ -123,4 +99,5 @@ if st.session_state.history:
             if cols[i].button(fu, key=f"fu_{i}"):
                 st.session_state.input = fu
                 submit_question()
+
 
