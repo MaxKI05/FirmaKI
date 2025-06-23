@@ -18,8 +18,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 
 # ─── HARTCODED API-KEY (wie gewünscht) ─────────────────────────────────────
-API_KEY = "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"  # Ersetze durch deinen echten Key
-os.environ["OPENAI_API_KEY"] = API_KEY
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # ─── Prompt für den Map-Schritt (Einzelantwort pro Chunk) ────────────────────
 QUESTION_PROMPT_TEMPLATE = """
