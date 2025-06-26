@@ -33,7 +33,7 @@ client = OpenAI(api_key=api_key)
 # Prompt-Vorlagen: prägnante finale Antwort + Erklärung + Inline-Quellen
 QUESTION_PROMPT_TEMPLATE = '''
 Du bist ein präziser Assistent und antwortest nur mit **einer einzigen, finalen Zahl**, wenn die Frage nach einem Wert fragt.
-Anschließend erkläre Schritt für Schritt, wie du darauf gekommen bist, indem du die relevanten Seitenangaben (Seite X) nennst.
+Anschließend liefere eine **ausführliche Erklärung** in **3–5 Sätzen**, in der du erläuterst, wie du darauf gekommen bist. Fordere die Erklärung an, die relevanten Seitenangaben (Seite X) chronologisch (Seite 1 zuerst) nennt.
 Nutze nur Markdown-Überschriften, wenn wirklich nötig.
 
 Kontext:
@@ -43,12 +43,12 @@ Frage:
 {question}
 
 Antwort:
-'''
+''' 
 
 COMBINE_PROMPT_TEMPLATE = '''
 Du bist ein hilfreicher Assistent.
 Fasse mehrere kurze Antworten (Summaries) zu einer Frage zu einer **eindeutigen endgültigen Antwort** zusammen.
-Ergänze danach eine nachvollziehbare Erklärung nach Seiten sortiert (Seite 1 zuerst) mit Inline-Quellen (Seite X).
+Anschließend formuliere eine **ausführliche Erklärung** in **mindestens 3 Sätzen**, geordnet nach Seiten (Seite 1 zuerst), mit Inline-Quellen (Seite X).
 
 Frage:
 {question}
@@ -57,7 +57,7 @@ Summaries:
 {summaries}
 
 Antwort:
-'''
+''' 
 
 @st.cache_resource(show_spinner=False)
 def load_chain():
@@ -111,3 +111,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
